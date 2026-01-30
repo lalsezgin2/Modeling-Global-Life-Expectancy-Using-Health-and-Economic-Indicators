@@ -1,0 +1,456 @@
+---
+title: "DA220 Final Project - Analysis on Life Expectancy"
+author: "Oghap Kim, Lal Sezgin"
+output: 
+  html_document:
+    df_print: paged
+    code_folding: show
+    toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+
+---
+
+# Introduction
+In recent decades, global health has improved significantly, especially in developing nations, thanks to advancements in technology and healthcare systems. Although it is widely recognized that life expectancy has increased overall, this upward trend has not occurred equally across all countries. Some nations have made rapid progress, while others have experienced slower improvements. This uneven pattern made us curious about the factors behind these differences, particularly between developed and developing countries. As a result, we chose to explore the following research question:
+
+'What are the key predictors of life expectancy across countries between 2010 and 2015?'
+
+To explore this question, we analyzed data from the Global Health Observatory (GHO) of the World Health Organization (WHO), along with additional economic information from the United Nations. The original dataset included data from 193 countries between 2000 and 2015. However, to keep our analysis focused and more relevant to today, we narrowed it down to data from 2010 to 2015.
+
+The dataset includes 22 variables and 2,938 observations, covering topics like health, income, education, and government spending. 
+
+Our main outcome variable is Life.expectancy (numerical), which shows the average number of years a newborn is expected to live based on current death rates.
+
+The main predictor variables we explored in relation to life expectancy are:
+
+Schooling: the average number of years of education (numerical)
+
+Income.composition.of.resources: a score showing how well people in a country can access income and basic needs (numerical)
+
+percentage.expenditure: the percentage of a country’s total income spent on healthcare (numerical)
+
+Alcohol: the average amount of alcohol consumed per person (numerical)
+
+Status: whether a country is classified as developed or developing (categorical)
+
+**Hypothesis:**  
+We believe that countries that invest more in healthcare, provide greater access to education, and have fairer income distribution will have higher life expectancy. We also expect that the connection between these factors and life expectancy will not be the same in every country. For example, spending more on healthcare might lead to larger improvements in developing countries compared to developed ones where basic services are already in place.
+
+To test this idea, we used visual analysis and statistical modeling in R to explore which factors are most closely linked to life expectancy. We also looked at whether these relationships change depending on whether a country is developed or developing.
+
+
+### Ethical Interpretation
+
+Data Ownership: 
+Our study uses publicly available national-level data from the World Health Organization and the United Nations. Since the data do not include individuals, there are no direct privacy concerns. However, there are other factors that may affect the conclusions of our analysis, which we listed below.
+
+Missing Data and Exclusion:
+Countries like Cabo Verde, Togo, and Vanuatu were excluded due to missing or incomplete data. This affects our results in several ways:
+
+  - It reduces representation of smaller or lower-income countries, which may face serious but different health     challenges.
+
+  - It may lead to bias, as the analysis leans more toward better-documented and wealthier countries.
+
+  - It limits how well the findings apply globally, especially to the excluded countries.
+
+Stakeholders:
+This analysis matters to public health officials, global organizations, researchers, and the communities reflected in the data. These groups are responsible for analyzing studies and reports like ours and using the findings to guide decisions, plan health programs, or support further research.
+
+Limits of Interpretation:
+Even when the analysis shows strong relationships between variables like education, income, and life expectancy, these should not be seen as direct cause-and-effect results. Many factors, such as healthcare access, local government stability, or environmental conditions, might also be influencing the outcomes. For instance, countries with higher alcohol consumption might also have stronger medical systems, which changes how alcohol affects health on a population level. We should be aware of this relationship when explaining and interpreting our findings, as not being careful with such patterns can lead to false conclusions.
+
+# Data Exploration
+
+Before building our models, we explored the dataset through visualizations to better understand the relationships between our chosen variables and life expectancy. These plots helped us identify patterns, spot possible outliers, and decide which variables to include in the next steps of our analysis. They also guided us in thinking about issues like multicollinearity. 
+
+```{r, message = FALSE, warning = FALSE}
+
+# Load packages
+library(tidyverse)
+library(dplyr)
+library(gridExtra)
+library(bestglm)
+library(reshape2)
+
+# Import the dataset
+data <- read.csv("dataset.csv")
+
+# Clean the data for only having the year between 2010~2015
+data_filtered <- data %>% filter(Year >= 2010 & Year <= 2015)
+
+```
+
+We used R packages including tidyverse, dplyr, bestglm, reshape2, and gridExtra to clean, filter, and visualize our data. To focus on recent trends, we limited our analysis to the years 2010 to 2015, excluding earlier data from 2000 to 2009. We also removed entries with missing values to maintain accuracy and avoid bias in the results. Below are the visuals we created to explore bour reserach quetsion further:
+
+## Visuals for Data Exploration
+
+### Life Expectancy vs. Income Level
+
+```{r, message = FALSE, warning = FALSE}
+
+ggplot(data_filtered, aes(x = Income.composition.of.resources, y = Life.expectancy)) +
+  geom_point(color = "pink", alpha = 0.6) +
+  labs(
+    title = "Life Expectancy vs Income Composition (2010–2015)",
+    x = "Income Composition of Resources",
+    y = "Life Expectancy"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) +  
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "gray")
+
+```
+
+This scatter plot shows the relationship between income composition of resources and life expectancy from 2010 to 2015. Each point represents a country, and the upward trend shows that as income composition increases, life expectancy also tends to rise. The line of best fit highlights a strong positive linear relationship, suggesting that better access to income and basic needs is linked to longer life expectancy. We used this plot to confirm that income composition is a meaningful variable to include in our model. Since the pattern is clear and consistent across many countries, this helped guide us toward using linear regression and comparing trends between different country groups in the next phase of analysis.
+
+
+### Life Expectancy vs. Schooling
+
+```{r, message = FALSE, warning = FALSE}
+
+# Life Expectancy vs Schooling
+ggplot(data_filtered, aes(x = Schooling, y = Life.expectancy)) +
+  geom_point(color = "orange", alpha = 0.6) +
+  labs(
+    title = "Life Expectancy vs Schooling (2010–2015)",
+    x = "Average Years of Schooling",
+    y = "Life Expectancy"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) +  # Center the title
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "gray")
+
+```
+
+The second scatter plot we created above shows the relationship between average years of schooling and life expectancy from 2010 to 2015. The upward trend suggests that countries with higher education levels tend to have longer life expectancy. The pattern is very similar to the one we observed in the income composition plot, with both showing a clear and consistent positive linear relationship across many countries. This helped confirm that schooling is an important variable to include in our model. At the same time, the similarity raised concerns about possible multicollinearity between predictors, so we decided to include a heatmap in the next steps to explore correlations between variables before moving into model building.
+
+### Life Expectancy vs Government Health Expenditure
+
+```{r, message = FALSE, warning = FALSE}
+
+# Life Expectancy vs Government Health Expenditure
+ggplot(data_filtered, aes(x = percentage.expenditure, y = Life.expectancy)) +
+  geom_point(color = "purple", alpha = 0.6) +
+  labs(
+    title = "Life Expectancy vs Government Health Expenditure (2010–2015)",
+    x = "Percentage of GDP Spent on Health",
+    y = "Life Expectancy"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "gray")
+
+```
+
+Our third scatter plot above shows the relationship between the percentage of a country's GDP spent on healthcare and life expectancy from 2010 to 2015. While there is a general upward trend, the data points are much more spread out compared to the previous graphs. Some countries that spend a lot on healthcare do not necessarily have the highest life expectancy, and some countries with lower spending still perform well. This weaker and less consistent pattern suggests that healthcare spending alone does not fully explain differences in life expectancy. This made us aware that government expenditure might not be as strong of a predictor as others, and it may or may not be selected in the subset selection step of our regression. Still, we included it in the model to test its role when combined with the other variables.
+
+
+### Life Expectancy vs Alcohol
+
+```{r, message = FALSE, warning = FALSE}
+
+# Life Expectancy vs Alcohol
+ggplot(data_filtered, aes(x = Alcohol, y = Life.expectancy)) +
+  geom_point(color = "yellow", alpha = 0.6) +
+  labs(
+    title = "Life Expectancy vs Alcohol (2010–2015)",
+    x = "Alcohol",
+    y = "Life Expectancy"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_smooth(method = "lm", se = FALSE, linetype = "dashed", color = "gray")
+
+```
+
+This scatter plot shows the relationship between alcohol consumption and life expectancy from 2010 to 2015. The pattern here is much weaker and more spread out compared to the earlier plots. While the trend line shows a slight upward relationship, there is a lot of variation, and it is not clear if alcohol consumption has a consistent effect on life expectancy. This made us more cautious about considering it a strong predictor. Still, we included it in our analysis to see how it performs in the full model and whether it would be selected during the subset selection process. By this point, we had a basic understanding that the variables we expected to matter most such as income, education, and healthcare spending had clearer relationships with life expectancy. But before starting the modeling phase, we decided to explore one more variable: country status.
+
+### Life Expectancy vs Development Status
+
+```{r, message = FALSE, warning = FALSE}
+
+df_filtered <- data_filtered %>%
+  filter(!is.na(Status), !is.na(`Life.expectancy`))  # Make sure column name matches
+
+# Boxplot of Life Expectancy by Country Status
+ggplot(df_filtered, aes(x = Status, y = Life.expectancy, fill = Status)) +
+  geom_boxplot() +
+  labs(
+    title = "Life Expectancy by Country Status (2010–2015)",
+    x = "Country Status",
+    y = "Life Expectancy"
+  ) +
+  scale_fill_manual(values = c("Developed" = "#1f77b4", "Developing" = "#ff7f0e")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    legend.position = "none"  # Remove if legend is redundant
+  )
+
+```
+
+The boxplot above compares life expectancy between developed and developing countries from 2010 to 2015. The difference between the two groups is clear as developed countries have a higher median life expectancy and a smaller range, while developing countries show more variation and generally lower values. This supports our initial hypothesis that development status plays a role in health levels. We included this variable not only to compare overall averages but also to check if the relationships between life expectancy and our other predictors change depending on a country’s development level.
+
+
+This relationship can also be validated through a t-test:
+```{r, message = FALSE, warning = FALSE}
+
+# Run t-test on Life Expectancy by Country Status
+t_test_result <- t.test(
+  `Life.expectancy` ~ Status,
+  data = df_filtered,
+  var.equal = FALSE 
+)
+
+# Print results
+t_test_result
+
+```
+The t-test results show a statistically significant difference in life expectancy between developed and developing countries, with a t-value of 30.06 and a p-value less than 2.2e-16. The 95% confidence interval for the difference in means ranges from 10.91 to 12.44, indicating that, on average, developed countries have a life expectancy about 11.7 years higher than developing countries. The mean life expectancy for developed countries was 80.64, compared to 68.96 for developing countries. These results strongly support the conclusion that development status is a meaningful factor in predicting life expectancy.
+
+### Checking Relationship between Variables
+
+```{r, message = FALSE, warning = FALSE}
+
+# Define the variables of interest
+vars_focus <- c("Life.expectancy", "Schooling", "Income.composition.of.resources", 
+                "percentage.expenditure", "Alcohol")
+
+# Subset the numeric dataframe to only those variables and remove missing values
+focus_df <- data_filtered %>%
+  select(all_of(vars_focus)) %>%
+  na.omit()
+
+# Compute and round correlation matrix
+cor_focus <- round(cor(focus_df), 2)
+
+# Melt the matrix
+cor_focus_melted <- melt(cor_focus)
+
+# Plot
+ggplot(data = cor_focus_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "red", high = "green", mid = "white",
+                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  labs(title = "Correlation Heatmap: Life Expectancy & Related Factors (2010–2015)",
+       x = "", y = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+        plot.title = element_text(hjust = 0.5))
+
+
+```
+
+We included this heatmap to check how strongly each of our predictor variables is related to life expectancy and to one another. After seeing similar patterns in the scatter plots, especially between schooling and income composition, we wanted to explore if any variables were too closely related. This was important for avoiding multicollinearity, which can affect the accuracy of linear regression. The heatmap shows that schooling and income composition are both strongly correlated with life expectancy and also fairly correlated with each other. Alcohol and health expenditure show weaker relationships. This visualization made us curious to see how these close relationships would affect our model results, especially in terms of changes in the R-squared value when variables are added or removed. It also got us interested in seeing which predictors would be selected during best subset modeling, and whether the most closely related variables would both be included or if one would be dropped.
+
+# Statistical Analysis and Interpretation
+
+## Model 1 - Multiple Linear Regression
+
+```{r, message = FALSE, warning = FALSE}
+
+model1 <- lm(`Life.expectancy` ~ Schooling + `Income.composition.of.resources` + 
+               `percentage.expenditure` + Status + BMI, data = df_filtered)
+
+# View model summary
+summary(model1)
+
+```
+
+
+### Model Fitting
+
+The linear model was fit using the `lm()` function in R, regressing `Life.expectancy` on a set of continuous and categorical predictors. The formula used was:
+
+```r
+Life.expectancy ~ Schooling + Income.composition.of.resources + 
+percentage.expenditure + Status + BMI
+```
+
+The model includes 5 predictors and was fit to **1,020 observations** after removing missing data. The use of both economic and social indicators allows for a comprehensive understanding of what influences life expectancy across countries.
+
+### Model Diagnostics
+
+We assess model assumptions using diagnostic plots of residuals:
+
+```{r, message = FALSE, warning = FALSE}
+par(mfrow = c(2, 2))
+plot(model1)
+```
+
+These plots help evaluate:
+- **Linearity**: Residuals should be randomly scattered around 0 (Residuals vs Fitted plot).
+
+- **Normality**: The Q-Q plot should show residuals forming a straight line.
+
+- **Homoscedasticity**: No fan-shaped patterns in the Scale-Location plot.
+
+- **Influence**: Cook’s distance plot helps identify highly influential observations.
+
+If assumptions are seriously violated, transformation or robust regression methods may be considered.
+
+### Model Interpretation
+
+The multiple linear regression model examines the relationship between `Life.expectancy` (dependent variable) and five predictors: `Schooling`, `Income.composition.of.resources`, `percentage.expenditure`, `Status`, and `BMI`.
+
+#### Key Findings:
+
+- **Schooling** *(p = 0.012)*: Each additional year of average schooling is associated with a **0.25-year increase in life expectancy**, holding other variables constant.
+
+- **Income.composition.of.resources** *(p < 2e-16)*: The strongest predictor, with each unit increase associated with a **3.94-year increase** in life expectancy.
+
+- **percentage.expenditure** *(p = 0.058)*: Not statistically significant, indicating a weak positive association with life expectancy.
+
+- **Status: Developing** *(p = 0.123)*: Not statistically significant, suggesting that once other factors are accounted for, development status alone may not predict life expectancy differences.
+
+- **BMI** *(p = 0.004)*: A positive and significant relationship with life expectancy, possibly reflecting the role of general health and nutrition.
+
+#### Model Fit:
+
+- **R-squared**: 0.768  
+- **Adjusted R-squared**: 0.767  
+- **F-statistic**: Highly significant (*p* < 2.2e-16), indicating that the model explains a substantial portion of variance in life expectancy.
+
+These results suggest that the model fits the data quite well. An R-squared value of 0.768 means that about 77% of the variation in life expectancy across countries can be explained by the predictors included in the model—mainly education and income-related variables. The Adjusted R-squared being very close (0.767) also supports that the model’s explanatory power remains strong even after accounting for the number of predictors, which helps reduce the chance of overfitting.
+
+The F-statistic being highly significant reinforces that, overall, the regression model is statistically meaningful and not due to random chance. Taken together, this provides strong evidence that education levels and economic resources are important factors in determining how long people tend to live across different countries. It aligns with the broader understanding that higher access to education and better economic conditions typically support healthier lifestyles and improved access to healthcare.
+
+## Model 2 – Stepwise Multiple Linear Regression
+
+```{r, message = FALSE, warning = FALSE}
+# Run stepwise selection (both directions) to get Model 2
+model2 <- step(model1, direction = "both")
+
+# View the summary of the selected model
+summary(model2)
+
+# Display final formula
+formula(model2)
+```
+
+
+### Model Fitting
+
+`Model 2` was generated using **stepwise selection** based on **Akaike Information Criterion (AIC)** to find the  well-fitting model with strong explanatory power. Starting from the full model (Model 1), predictors were added or removed in both directions to minimize AIC.
+
+- **Initial AIC**: 2876.39  
+- **Final Model AIC**: 2876.4  
+- **Final Model Formula**:  
+  `Life.expectancy ~ Schooling + Income.composition.of.resources + percentage.expenditure + Status + BMI`
+
+The fact that the final model's AIC is nearly identical to the initial AIC, and that all original predictors were retained, suggests that each variable plays an important role in explaining life expectancy. In other words, stepwise selection didn’t find any predictors to be redundant or unhelpful in improving the model’s performance. This adds confidence that these five predictors—particularly education, income composition, and healthcare spending—jointly provide meaningful insight into the factors that influence life expectancy across different countries.
+
+---
+
+### Model Diagnostics
+
+```{r, message = FALSE, warning = FALSE}
+# Diagnostic plots for model2
+par(mfrow = c(2, 2))
+plot(model2)
+```
+
+Model 2 satisfies the key assumptions of linear regression based on diagnostic plots. The Residuals vs Fitted plot shows a random scatter around zero, supporting linearity and equal variance, although points like 2496 and 0426 appear as mild outliers. The **Normal Q-Q plot** reveals that residuals mostly follow the diagonal line, suggesting approximate normality, with slight deviations at the tails for observations such as 1136 and 3960. The Scale-Location plot indicates fairly constant variance across fitted values, again highlighting 0426 but showing no major concern overall. Finally, the Residuals vs Leverage plot identifies most points as having low leverage, though observations 1014, 1136, and especially 3960 may be more influential, with 3960 approaching the Cook’s distance threshold. While these observations warrant attention, they do not appear to undermine the model’s validity, though formal influence diagnostics can be conducted for confirmation.
+
+### Model Interpretation
+
+Model 2 retained all five original predictors, confirming their importance in explaining variation in life expectancy.
+
+The final model was selected using stepwise regression based on the Akaike Information Criterion (AIC) where the initial AIC value was 2876.39, and the final model yielded a nearly identical AIC of 2876.4. This suggests that the stepwise procedure ultimately retained all variables from the original model: Schooling, Income Composition of Resources, Percentage Expenditure, Status, and BMI. Since removing any of these predictors increased the AIC, it indicates that each one contributes meaningfully to explaining variation in life expectancy. In other words, all these variables appear to be important for understanding differences in life expectancy across countries. 
+
+#### Key Coefficients:
+
+- **Schooling** *(p = 0.012)*: Every additional year of schooling increases life expectancy by approximately **0.25 years**.
+- **Income.composition.of.resources** *(p < 2e-16)*: A strong positive effect, with each unit increase contributing nearly **3.94 years** to life expectancy.
+- **percentage.expenditure** *(p = 0.058)*: Shows a marginally significant positive association, suggesting potential but weak impact of health investment.
+- **Status (Developing)** *(p = 0.123)*: Not statistically significant after controlling for other variables.
+- **BMI** *(p = 0.004)*: Positively associated, with each unit of BMI contributing approximately **0.021 years** to life expectancy.
+
+#### Model Fit:
+
+- **Multiple R-squared**: 0.7681  
+- **Adjusted R-squared**: 0.7669  
+- **F-statistic**: 675.5 on 5 and 1020 degrees of freedom  
+- **p-value**: < 2.2e-16
+
+This model explains nearly **77% of the variance** in life expectancy and confirms that economic access, education, and health-related indicators are strong predictors.
+
+---
+
+### Model1 and Model2 Comparison Summary
+
+To validate the selection of predictors used in the initial multiple linear regression (Model 1), we applied stepwise model selection using the Akaike Information Criterion (AIC) to generate Model 2. The stepwise procedure retained all five predictors—`Schooling`, `Income.composition.of.resources`, `percentage.expenditure`, `Status`, and `BMI`—indicating that the original model was already optimal in terms of explanatory power and parsimony. Both models yielded identical results in terms of AIC (2876.4), R-squared (0.7681), adjusted R-squared (0.7669), and statistical significance of coefficients. Therefore, Model 2 confirms that Model 1 is well-specified and includes informative predictors for explaining variation in life expectancy.
+
+## Model 3 – Lasso Regression
+
+To address potential multicollinearity and identify the  important predictors of life expectancy, we applied **Lasso regression**, a penalized regression method that performs variable selection by shrinking less important coefficients toward zero.
+
+```{r, message = FALSE, warning = FALSE}
+# Prepare clean dataset and fit Lasso model
+df_lasso <- df_filtered %>%
+  select(Life.expectancy, Schooling, Income.composition.of.resources,
+         percentage.expenditure, Status, BMI) %>%
+  na.omit()
+
+x <- model.matrix(Life.expectancy ~ . - 1, data = df_lasso)
+y <- df_lasso$Life.expectancy
+
+library(glmnet)
+model_lasso <- cv.glmnet(x, y, alpha = 1)
+
+# Plot cross-validated errors
+plot(model_lasso)
+
+# View coefficients at best lambda
+coef(model_lasso, s = "lambda.min")
+```
+
+### Interpretation
+
+At the optimal lambda (λ), chosen via 10-fold cross-validation, the Lasso model retained the following variables:
+
+- `Schooling`  
+- `Income.composition.of.resources`  
+- `percentage.expenditure`  
+- `StatusDeveloped`  
+- `BMI`  
+
+Lasso confirms that **education, income composition, health expenditure, and BMI** are the influential predictors of life expectancy in this dataset, while simplifying the model by excluding less relevant predictors.
+
+### Overall Model Comparison and Conclusion
+
+Across all models explored in this project, a consistent pattern showed regarding the influential predictors of life expectancy. The initial multiple linear regression model (Model 1) identified `Schooling`, `Income.composition.of.resources`, and `BMI` as statistically significant predictors, with `Income.composition.of.resources` showing the strongest association. The stepwise regression model (Model 2) confirmed this result, where it kept all original variables and demonstrating no improvement in model fit, which validated the original model's construction. 
+
+Lasso regression (Model 3) further refined the analysis by penalizing less informative variables. It excluded `StatusDeveloping`, reinforcing the insight that development classification offers little additional predictive value once more specific economic and health indicators are included. The predictors retained by Lasso, particularly `Income.composition.of.resources`, `Schooling`, and `BMI` where it consistently showed meaningful relationships with life expectancy across models.
+
+Together, these models provide evidence that life expectancy is strongly associated with access to resources, education, and general health indicators, rather than categorical classifications such as development status. The convergence of findings across multiple modeling approaches enhances the credibility of the results and supports their relevance for global health policy and planning.
+
+
+# Conclusion
+
+## Summary
+
+This analysis aimed to identify the influential predictors of life expectancy across countries during the period from 2010 to 2015. Using a variety of statistical approaches including multiple linear regression, stepwise AIC-based model selection, and Lasso regression, we consistently found that **Schooling**, **Income composition of resources**, **BMI**, and **percentage of GDP spent on healthcare** were significant predictors of life expectancy. Among these, *Income composition of resources* had the strongest association, with a substantial and statistically significant positive effect. Development status (Developed vs Developing), while initially showing a significant raw difference in a t-test, was no longer significant in multivariate models once more precise economic and health-related indicators were included.
+
+The Lasso regression model provided additional validation by excluding the `StatusDeveloping` variable, reinforcing that broad categorical development labels contribute less to prediction than direct measures of social and economic conditions. This confirms the quality of our Model 1 and Model 2 results and highlights the value of penalized regression in refining variable selection.
+
+## Caveats
+
+There are several limitations to consider in interpreting these results:
+
+- **Missing data** from less-documented countries led to the exclusion of some observations, potentially introducing selection bias.
+- **Cross-sectional nature** of the data prevents causal inference; we can only discuss associations, not cause-and-effect relationships.
+- Some variables, such as `percentage.expenditure`, not had enough significance and could be sensitive to outliers or measurement inconsistencies across countries.
+- The broad variable `BMI` may capture both positive (nutritional access) and negative (obesity) health influences.
+
+## Future
+
+Future research could build on this analysis by:
+
+- **Incorporating longitudinal data** to assess how changes in predictors influence changes in life expectancy over time.
+- **Including additional variables** such as healthcare infrastructure, political stability, and environmental conditions to expand model.
+
+Finally, this type of analysis can serve as a tool for policymakers, helping prioritize investments in education and economic equity to improve population health outcomes globally. Moreover, future studies could benefit from a more region specific approach. It could potentially focus on recognizing that the factors of life expectancy may vary significantly across the context of cultural, economic, and geographic contexts. Understanding how these factors interact could also deepen our understanding into the complex mechanisms shaping life expectancy and help design more intersectional policies.
