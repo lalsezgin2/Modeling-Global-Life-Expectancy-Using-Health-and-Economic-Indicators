@@ -1,0 +1,2 @@
+# Modeling-Global-Life-Expectancy-Using-Health-and-Economic-Indicators
+This project studies differences in life expectancy across countries from 2010–2015 using WHO and UN data. We use exploratory data analysis and regression models in R, including multiple linear regression, stepwise selection, and Lasso, to examine how education, income, health spending, BMI, and development status relate to life expectancy.
